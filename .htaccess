@@ -1,0 +1,12 @@
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # 如后续需要伪静态，可在此扩展
+</IfModule>
+
+# 禁止直接访问 .ini / .log / .sql 等敏感文件
+<FilesMatch "\.(ini|log|sql|db|git|env)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>

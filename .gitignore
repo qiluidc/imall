@@ -1,0 +1,21 @@
+# 生产配置：本地部署的真实密码请勿提交
+# config.php 为脱敏模板，部署时自行修改即可
+
+# 用户上传的图片/文件（保留 .htaccess 防护）
+uploads/*
+!uploads/.htaccess
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 日志与临时文件
+*.log
+*.sql
+
+# 编辑器
+.vscode/
+.idea/
+
+# 开发调试残留（含生产域名/CSRF 快照）
+trash_hint_fixed.html
