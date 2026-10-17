@@ -89,11 +89,6 @@ admin_page_start('系统设置');
     </div>
 
     <div class="form-card">
-        <h3>通知设置</h3>
-        <p class="hint">短信通知（螺丝帽）与邮件通知（发件邮箱）已移至独立的「通知设置」菜单，请到左侧「通知设置」中配置。</p>
-    </div>
-
-    <div class="form-card">
         <h3>管理员密码</h3>
         <p class="hint">如需修改后台登录密码，请填写新密码并保存。</p>
         <div class="form-row">
