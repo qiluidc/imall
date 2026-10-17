@@ -285,41 +285,29 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // 设置保存
-    const settingsForm = document.getElementById('settingsForm');
-    if (settingsForm) {
-        settingsForm.addEventListener('submit', function (e) {
+    // 表单取值helper（input / textarea / select 通用）
+    function fieldValue(name) {
+        const el = document.querySelector('[name="' + name + '"]');
+        return el ? el.value.trim() : '';
+    }
+    function fieldChecked(name) {
+        const el = document.querySelector('input[name="' + name + '"]');
+        return el && el.checked ? 1 : 0;
+    }
+
+    // 通用表单保存（系统设置 / 通知设置共用）
+    function bindSaveForm(formId, btnId, url, buildPayload) {
+        const form = document.getElementById(formId);
+        if (!form) return;
+        form.addEventListener('submit', function (e) {
             e.preventDefault();
-            const btn = document.getElementById('saveSettingsBtn');
+            const btn = document.getElementById(btnId);
             btn.disabled = true;
             btn.textContent = '保存中...';
-
-            const payload = {
-                site_name: document.querySelector('input[name="site_name"]').value.trim(),
-                site_notice: document.querySelector('textarea[name="site_notice"]').value.trim(),
-                payment_qr: document.querySelector('input[name="payment_qr"]').value.trim(),
-                payment_tip: document.querySelector('textarea[name="payment_tip"]').value.trim(),
-                payment_card_extra: document.querySelector('textarea[name="payment_card_extra"]').value.trim(),
-                contact_phone: document.querySelector('input[name="contact_phone"]').value.trim(),
-                contact_wechat: document.querySelector('input[name="contact_wechat"]').value.trim(),
-                contact_wechat_qr: document.querySelector('input[name="contact_wechat_qr"]').value.trim(),
-                sms_enabled: document.querySelector('input[name="sms_enabled"]').checked ? 1 : 0,
-                sms_api_key: document.querySelector('input[name="sms_api_key"]').value.trim(),
-                sms_signature: document.querySelector('input[name="sms_signature"]').value.trim(),
-                admin_notify_mobiles: document.querySelector('input[name="admin_notify_mobiles"]').value.trim(),
-                sms_tpl_order: document.querySelector('textarea[name="sms_tpl_order"]').value.trim(),
-                sms_tpl_ship: document.querySelector('textarea[name="sms_tpl_ship"]').value.trim(),
-                admin_password: document.querySelector('input[name="admin_password"]').value,
-                admin_password_confirm: document.querySelector('input[name="admin_password_confirm"]').value,
-            };
-
-            fetch('/admin/api/settings_save.php', {
+            fetch(url, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-Token': csrfToken,
-                },
-                body: JSON.stringify(payload),
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+                body: JSON.stringify(buildPayload()),
             })
             .then(r => r.json())
             .then(res => {
@@ -340,32 +328,75 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // 短信测试发送
-    const smsTestBtn = document.getElementById('smsTestBtn');
-    if (smsTestBtn) {
-        smsTestBtn.addEventListener('click', function () {
-            const mobile = document.getElementById('smsTestMobile').value.trim();
-            const resultEl = document.getElementById('smsTestResult');
-            if (!mobile) {
-                resultEl.textContent = '请填写测试手机号';
+    // 系统设置保存（站点 / 收款 / 联系方式 / 管理员密码）
+    bindSaveForm('settingsForm', 'saveSettingsBtn', '/admin/api/settings_save.php', function () {
+        return {
+            site_name: fieldValue('site_name'),
+            site_notice: fieldValue('site_notice'),
+            payment_qr: fieldValue('payment_qr'),
+            payment_tip: fieldValue('payment_tip'),
+            payment_card_extra: fieldValue('payment_card_extra'),
+            contact_phone: fieldValue('contact_phone'),
+            contact_wechat: fieldValue('contact_wechat'),
+            contact_wechat_qr: fieldValue('contact_wechat_qr'),
+            admin_password: document.querySelector('input[name="admin_password"]').value,
+            admin_password_confirm: document.querySelector('input[name="admin_password_confirm"]').value,
+        };
+    });
+
+    // 通知设置保存（邮件 + 短信）
+    bindSaveForm('notifyForm', 'saveNotifyBtn', '/admin/api/notify_save.php', function () {
+        return {
+            mail_enabled: fieldChecked('mail_enabled'),
+            mail_smtp_host: fieldValue('mail_smtp_host'),
+            mail_smtp_port: fieldValue('mail_smtp_port'),
+            mail_smtp_secure: fieldValue('mail_smtp_secure'),
+            mail_smtp_user: fieldValue('mail_smtp_user'),
+            mail_smtp_pass: fieldValue('mail_smtp_pass'),
+            mail_from_address: fieldValue('mail_from_address'),
+            mail_from_name: fieldValue('mail_from_name'),
+            mail_admin_emails: fieldValue('mail_admin_emails'),
+            sms_enabled: fieldChecked('sms_enabled'),
+            sms_api_key: fieldValue('sms_api_key'),
+            sms_signature: fieldValue('sms_signature'),
+            admin_notify_mobiles: fieldValue('admin_notify_mobiles'),
+            sms_tpl_order: fieldValue('sms_tpl_order'),
+            sms_tpl_ship: fieldValue('sms_tpl_ship'),
+        };
+    });
+
+    // 通用通道测试发送（短信 / 邮件共用）
+    function bindTestSend(btnId, inputId, resultId, url, payloadKey, emptyMsg) {
+        const btn = document.getElementById(btnId);
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+            const val = document.getElementById(inputId).value.trim();
+            const resultEl = document.getElementById(resultId);
+            if (!val) {
+                resultEl.textContent = emptyMsg;
                 return;
             }
-            smsTestBtn.disabled = true;
+            btn.disabled = true;
             resultEl.textContent = '发送中...';
-            fetch('/admin/api/sms_test.php', {
+            const body = {};
+            body[payloadKey] = val;
+            fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
-                body: JSON.stringify({ mobile: mobile }),
+                body: JSON.stringify(body),
             })
             .then(r => r.json())
             .then(res => {
                 resultEl.textContent = res.msg || (res.code === 0 ? '发送成功' : '发送失败');
-                smsTestBtn.disabled = false;
+                btn.disabled = false;
             })
             .catch(() => {
                 resultEl.textContent = '请求失败，请检查网络';
-                smsTestBtn.disabled = false;
+                btn.disabled = false;
             });
         });
     }
+
+    bindTestSend('smsTestBtn', 'smsTestMobile', 'smsTestResult', '/admin/api/sms_test.php', 'mobile', '请填写测试手机号');
+    bindTestSend('mailTestBtn', 'mailTestTo', 'mailTestResult', '/admin/api/mail_test.php', 'email', '请填写测试收件邮箱');
 });

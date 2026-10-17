@@ -19,18 +19,6 @@ $paymentCardExtra = trim($input['payment_card_extra'] ?? '');
 $contactPhone = trim($input['contact_phone'] ?? '');
 $contactWechat = trim($input['contact_wechat'] ?? '');
 $contactWechatQr = trim($input['contact_wechat_qr'] ?? '');
-$smsEnabled = !empty($input['sms_enabled']) ? '1' : '0';
-$smsApiKey = trim($input['sms_api_key'] ?? '');
-$smsSignature = trim($input['sms_signature'] ?? '');
-$adminMobiles = trim($input['admin_notify_mobiles'] ?? '');
-$smsTplOrder = trim($input['sms_tpl_order'] ?? '');
-$smsTplShip = trim($input['sms_tpl_ship'] ?? '');
-if ($smsTplOrder === '') {
-    $smsTplOrder = '新订单待处理：{product} x{quantity}，合计¥{amount}。收货人：{buyer}({phone})，地址：{address}。订单号：{order_no}';
-}
-if ($smsTplShip === '') {
-    $smsTplShip = '您的订单({order_no})已发货，{company} 单号：{tracking_no}。请留意查收，感谢购买！';
-}
 $adminPassword = $input['admin_password'] ?? '';
 $adminPasswordConfirm = $input['admin_password_confirm'] ?? '';
 
@@ -46,12 +34,6 @@ setting_set('payment_card_extra', $paymentCardExtra);
 setting_set('contact_phone', $contactPhone);
 setting_set('contact_wechat', $contactWechat);
 setting_set('contact_wechat_qr', $contactWechatQr);
-setting_set('sms_enabled', $smsEnabled);
-setting_set('sms_api_key', $smsApiKey);
-setting_set('sms_signature', $smsSignature);
-setting_set('admin_notify_mobiles', $adminMobiles);
-setting_set('sms_tpl_order', $smsTplOrder);
-setting_set('sms_tpl_ship', $smsTplShip);
 
 if ($adminPassword !== '' || $adminPasswordConfirm !== '') {
     if (strlen($adminPassword) < 6) {

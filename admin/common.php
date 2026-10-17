@@ -41,6 +41,7 @@ function admin_page_start(string $title): void
             <a class="<?php echo admin_active('/admin/products.php') . admin_active('/admin/product_edit.php'); ?>" href="/admin/products.php">商品管理</a>
             <a class="<?php echo admin_active('/admin/orders.php') . admin_active('/admin/order_view.php'); ?>" href="/admin/orders.php">订单管理</a>
             <a class="<?php echo admin_active('/admin/settings.php'); ?>" href="/admin/settings.php">系统设置</a>
+            <a class="<?php echo admin_active('/admin/notify.php'); ?>" href="/admin/notify.php">通知设置</a>
         </nav>
         <div class="user-bar">
             <span><?php echo e($adminUser); ?></span>

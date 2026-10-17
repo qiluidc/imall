@@ -11,12 +11,6 @@ $settings = [
     'contact_phone'  => setting('contact_phone'),
     'contact_wechat' => setting('contact_wechat'),
     'contact_wechat_qr' => setting('contact_wechat_qr'),
-    'sms_enabled'         => setting('sms_enabled', 0),
-    'sms_api_key'         => setting('sms_api_key'),
-    'sms_signature'       => setting('sms_signature'),
-    'admin_notify_mobiles'=> setting('admin_notify_mobiles'),
-    'sms_tpl_order'       => setting('sms_tpl_order', '新订单待处理：{product} x{quantity}，合计¥{amount}。收货人：{buyer}({phone})，地址：{address}。订单号：{order_no}'),
-    'sms_tpl_ship'        => setting('sms_tpl_ship', '您的订单({order_no})已发货，{company} 单号：{tracking_no}。请留意查收，感谢购买！'),
 ];
 
 admin_page_start('系统设置');
@@ -95,48 +89,8 @@ admin_page_start('系统设置');
     </div>
 
     <div class="form-card">
-        <div class="form-card-head">
-            <h3>短信通知（螺丝帽）</h3>
-            <label class="toggle" title="开启 / 关闭短信通知">
-                <input type="checkbox" name="sms_enabled" value="1" <?php echo $settings['sms_enabled'] ? 'checked' : ''; ?>>
-                <span class="toggle-slider"></span>
-            </label>
-        </div>
-        <div class="form-group">
-            <label>螺丝帽 API Key</label>
-            <input type="text" name="sms_api_key" value="<?php echo e($settings['sms_api_key']); ?>" placeholder="key-xxxxxxxxxxxx">
-            <small>登录螺丝帽控制台 →【短信服务】→【触发发送】获取 API Key</small>
-        </div>
-        <div class="form-group">
-            <label>短信签名（不含括号）</label>
-            <input type="text" name="sms_signature" value="<?php echo e($settings['sms_signature']); ?>" placeholder="例如：云谷优选">
-            <small>系统会自动包裹为【签名】，该签名需在螺丝帽后台已通过审核</small>
-        </div>
-        <div class="form-group">
-            <label>下单通知模板（发给管理员）</label>
-            <textarea name="sms_tpl_order" rows="3"><?php echo e($settings['sms_tpl_order']); ?></textarea>
-            <small>可用变量：{product} {quantity} {amount} {buyer} {phone} {address} {order_no}</small>
-        </div>
-        <div class="form-group">
-            <label>发货通知模板（发给买家）</label>
-            <textarea name="sms_tpl_ship" rows="3"><?php echo e($settings['sms_tpl_ship']); ?></textarea>
-            <small>可用变量：{order_no} {company} {tracking_no} {product}</small>
-        </div>
-        <div class="form-two-col">
-            <div class="form-group">
-                <label>管理员接收手机号（多个用逗号分隔）</label>
-                <input type="text" name="admin_notify_mobiles" value="<?php echo e($settings['admin_notify_mobiles']); ?>" placeholder="13800138000,13900139000">
-                <small>用户下单后，向这些号码发送新订单通知</small>
-            </div>
-            <div class="form-group">
-                <label>发送测试</label>
-                <div class="inline-with-btn">
-                    <input type="text" id="smsTestMobile" placeholder="测试手机号" autocomplete="off">
-                    <button type="button" class="btn-primary-sm" id="smsTestBtn">发送测试</button>
-                </div>
-                <small id="smsTestResult"></small>
-            </div>
-        </div>
+        <h3>通知设置</h3>
+        <p class="hint">短信通知（螺丝帽）与邮件通知（发件邮箱）已移至独立的「通知设置」菜单，请到左侧「通知设置」中配置。</p>
     </div>
 
     <div class="form-card">

@@ -366,3 +366,169 @@ function send_sms(string $mobile, string $content): array
     }
     return ['ok' => false, 'msg' => ($data['msg'] ?? '未知错误')];
 }
+
+/* ------------------------------------------------------------------
+ * 邮件通知：轻量 SMTP 客户端（零依赖，SSL / STARTTLS / 明文 + AUTH LOGIN）
+ * ------------------------------------------------------------------ */
+
+/** 读取邮件通知配置 */
+function mail_config(): array
+{
+    return [
+        'enabled'  => (bool) setting('mail_enabled'),
+        'host'     => trim((string) setting('mail_smtp_host')),
+        'port'     => (int) (setting('mail_smtp_port') ?: 465),
+        'secure'   => trim((string) (setting('mail_smtp_secure') ?: 'ssl')), // ssl | tls | none
+        'user'     => trim((string) setting('mail_smtp_user')),
+        'pass'     => (string) setting('mail_smtp_pass'),
+        'from'     => trim((string) setting('mail_from_address')),
+        'fromName' => trim((string) setting('mail_from_name')),
+        'admins'   => trim((string) setting('mail_admin_emails')),
+    ];
+}
+
+/** 邮件头字段 UTF-8 编码（纯 ASCII 原样返回，避免不必要的编码） */
+function mail_header_encode(string $text): string
+{
+    if ($text === '' || preg_match('/^[\x20-\x7E]*$/', $text)) {
+        return $text;
+    }
+    return '=?UTF-8?B?' . base64_encode($text) . '?=';
+}
+
+/**
+ * 读取一行 SMTP 响应（支持 EHLO 多行响应：以 "NNN " 结尾为最后一行）
+ * @param resource $fp
+ */
+function smtp_read($fp): array
+{
+    $code  = 0;
+    $lines = [];
+    while (($line = fgets($fp, 515)) !== false) {
+        $lines[] = rtrim($line, "\r\n");
+        if (strlen($line) < 4) {
+            break;
+        }
+        $code = (int) substr($line, 0, 3);
+        if ($line[3] === ' ') {
+            break; // 空格表示响应结束，'-' 表示还有后续行
+        }
+    }
+    return ['code' => $code, 'text' => implode(' | ', $lines)];
+}
+
+/**
+ * 发送一条 SMTP 命令并校验响应码
+ * @param resource $fp
+ */
+function smtp_cmd($fp, ?string $cmd, array $expect): array
+{
+    if ($cmd !== null) {
+        fwrite($fp, $cmd . "\r\n");
+    }
+    $res = smtp_read($fp);
+    if (!in_array($res['code'], $expect, true)) {
+        return ['ok' => false, 'msg' => 'SMTP 响应异常(' . $res['code'] . ')：' . $res['text']];
+    }
+    return ['ok' => true, 'msg' => $res['text']];
+}
+
+/**
+ * 发送邮件（纯文本），返回 ['ok' => bool, 'msg' => string]
+ */
+function send_mail(string $to, string $subject, string $body): array
+{
+    $cfg = mail_config();
+    if (!$cfg['enabled']) {
+        return ['ok' => false, 'msg' => '邮件通知未开启'];
+    }
+    if ($cfg['host'] === '' || $cfg['from'] === '') {
+        return ['ok' => false, 'msg' => '请先在「通知设置」填写 SMTP 服务器与发件邮箱'];
+    }
+    if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+        return ['ok' => false, 'msg' => '收件邮箱格式错误'];
+    }
+
+    $remote = ($cfg['secure'] === 'ssl' ? 'ssl://' : 'tcp://') . $cfg['host'] . ':' . $cfg['port'];
+    $fp = @stream_socket_client($remote, $errno, $errstr, 10, STREAM_CLIENT_CONNECT);
+    if (!$fp) {
+        return ['ok' => false, 'msg' => '连接 SMTP 服务器失败：' . $errstr];
+    }
+    stream_set_timeout($fp, 15);
+    $ehloHost = 'localhost';
+
+    // 220 服务就绪
+    $r = smtp_cmd($fp, null, [220]);
+    if (!$r['ok']) { fclose($fp); return $r; }
+
+    $r = smtp_cmd($fp, 'EHLO ' . $ehloHost, [250]);
+    if (!$r['ok']) {
+        $r = smtp_cmd($fp, 'HELO ' . $ehloHost, [250]); // 老旧服务器不支持 EHLO
+        if (!$r['ok']) { fclose($fp); return $r; }
+    }
+
+    // 587 端口通常为明文 + STARTTLS 升级
+    if ($cfg['secure'] === 'tls') {
+        $r = smtp_cmd($fp, 'STARTTLS', [220]);
+        if (!$r['ok']) { fclose($fp); return $r; }
+        if (!@stream_socket_enable_crypto($fp, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
+            fclose($fp);
+            return ['ok' => false, 'msg' => '无法启用 TLS 加密，请确认服务器支持 STARTTLS'];
+        }
+        $r = smtp_cmd($fp, 'EHLO ' . $ehloHost, [250]); // 加密后需重新握手
+        if (!$r['ok']) { fclose($fp); return $r; }
+    }
+
+    if ($cfg['user'] !== '') {
+        $r = smtp_cmd($fp, 'AUTH LOGIN', [334]);
+        if (!$r['ok']) { fclose($fp); return $r; }
+        $r = smtp_cmd($fp, base64_encode($cfg['user']), [334]);
+        if (!$r['ok']) { fclose($fp); return $r; }
+        $r = smtp_cmd($fp, base64_encode($cfg['pass']), [235]);
+        if (!$r['ok']) {
+            fclose($fp);
+            return ['ok' => false, 'msg' => 'SMTP 账号或授权码不正确，请检查（多数邮箱需使用「授权码」而非登录密码）'];
+        }
+    }
+
+    $r = smtp_cmd($fp, 'MAIL FROM: <' . $cfg['from'] . '>', [250]);
+    if (!$r['ok']) { fclose($fp); return $r; }
+    $r = smtp_cmd($fp, 'RCPT TO: <' . $to . '>', [250, 251]);
+    if (!$r['ok']) { fclose($fp); return $r; }
+    $r = smtp_cmd($fp, 'DATA', [354]);
+    if (!$r['ok']) { fclose($fp); return $r; }
+
+    $headers = [
+        'From: ' . mail_header_encode($cfg['fromName'] !== '' ? $cfg['fromName'] : $cfg['from']) . ' <' . $cfg['from'] . '>',
+        'To: <' . $to . '>',
+        'Subject: ' . mail_header_encode($subject),
+        'Date: ' . date('r'),
+        'Message-ID: <' . md5(uniqid('', true)) . '@' . preg_replace('/[^a-zA-Z0-9.-]/', '', $cfg['host']) . '>',
+        'MIME-Version: 1.0',
+        'Content-Type: text/plain; charset=UTF-8',
+        'Content-Transfer-Encoding: base64',
+        'X-Mailer: iMall',
+    ];
+    fwrite($fp, implode("\r\n", $headers) . "\r\n\r\n" . chunk_split(base64_encode($body)) . "\r\n.\r\n");
+
+    $r = smtp_cmd($fp, null, [250]);
+    if (!$r['ok']) { fclose($fp); return $r; }
+
+    smtp_cmd($fp, 'QUIT', [221, 250]);
+    fclose($fp);
+    return ['ok' => true, 'msg' => '发送成功'];
+}
+
+/** 解析管理员接收邮箱（支持逗号/分号/空格/中英文逗号分隔） */
+function mail_admin_list(string $raw = ''): array
+{
+    $raw = $raw !== '' ? $raw : (string) setting('mail_admin_emails');
+    $parts = preg_split('/[\s,;，、]+/u', $raw, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+    $out = [];
+    foreach ($parts as $p) {
+        if (filter_var($p, FILTER_VALIDATE_EMAIL)) {
+            $out[] = $p;
+        }
+    }
+    return array_values(array_unique($out));
+}

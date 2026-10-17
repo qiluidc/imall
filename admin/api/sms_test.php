@@ -17,7 +17,7 @@ if (!is_mobile($mobile)) {
 
 $apiKey = setting('sms_api_key');
 if (!setting('sms_enabled') || !$apiKey) {
-    json_response(['code' => 400, 'msg' => '请先在「系统设置」填写 API Key 并启用短信通知']);
+    json_response(['code' => 400, 'msg' => '请先在「通知设置」填写 API Key 并启用短信通知']);
 }
 
 $content = '短信通道测试：您好，这是来自 ' . setting('site_name', APP_NAME) . ' 的一条测试短信，收到说明配置正常。';
