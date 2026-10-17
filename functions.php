@@ -532,3 +532,86 @@ function mail_admin_list(string $raw = ''): array
     }
     return array_values(array_unique($out));
 }
+
+/* ------------------------------------------------------------------
+ * 业务事件通知：短信 / 邮件双通道，各通道独立开关，失败均不影响主流程
+ * ------------------------------------------------------------------ */
+
+/** 解析管理员接收手机号（支持逗号/分号/空格/中英文逗号分隔） */
+function admin_mobile_list(string $raw = ''): array
+{
+    $raw = $raw !== '' ? $raw : (string) setting('admin_notify_mobiles');
+    $parts = preg_split('/[\s,;，、]+/u', $raw, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+    $out = [];
+    foreach ($parts as $p) {
+        if (is_mobile($p)) {
+            $out[] = $p;
+        }
+    }
+    return array_values(array_unique($out));
+}
+
+/** 新订单邮件正文（纯文本，邮件适合承载完整明细，故不复用短信单行模板） */
+function mail_new_order_body(array $order): string
+{
+    $spec   = trim((string) ($order['spec_label'] ?? ''));
+    $remark = trim((string) ($order['buyer_remark'] ?? ''));
+
+    $lines = [
+        '您有一笔新订单待处理：',
+        '',
+        '订单号：' . $order['order_no'],
+        '商品：' . $order['product_title'] . ($spec !== '' ? '（' . $spec . '）' : ''),
+        '数量：x' . (int) $order['quantity'],
+        '金额：' . format_money((float) $order['total_amount']),
+        '',
+        '收货人：' . $order['buyer_name'],
+        '联系电话：' . $order['buyer_phone'],
+        '收货地址：' . $order['buyer_address'],
+    ];
+    if ($remark !== '') {
+        $lines[] = '买家备注：' . $remark;
+    }
+    $lines[] = '';
+    $lines[] = '下单时间：' . date('Y-m-d H:i', (int) ($order['created_at'] ?: now()));
+
+    $host = $_SERVER['HTTP_HOST'] ?? '';
+    if ($host !== '') {
+        $lines[] = '';
+        $lines[] = '处理入口：https://' . $host . '/admin/orders.php';
+    }
+    return implode("\n", $lines);
+}
+
+/**
+ * 新订单通知管理员
+ * 邮件只面向管理员：订单表无买家邮箱字段，买家侧仅走短信
+ */
+function notify_admin_new_order(array $order): void
+{
+    // 短信通道
+    if (setting('sms_enabled')) {
+        $tpl = setting('sms_tpl_order', '新订单待处理：{product} x{quantity}，合计¥{amount}。收货人：{buyer}({phone})，地址：{address}。订单号：{order_no}');
+        $content = render_sms_template($tpl, [
+            'product'  => $order['product_title'],
+            'quantity' => $order['quantity'],
+            'amount'   => format_money((float) $order['total_amount']),
+            'buyer'    => $order['buyer_name'],
+            'phone'    => $order['buyer_phone'],
+            'address'  => $order['buyer_address'],
+            'order_no' => $order['order_no'],
+        ]);
+        foreach (admin_mobile_list() as $m) {
+            @send_sms($m, $content);
+        }
+    }
+
+    // 邮件通道
+    if (setting('mail_enabled')) {
+        $subject = '【新订单】' . $order['order_no'] . ' · ' . format_money((float) $order['total_amount']);
+        $body    = mail_new_order_body($order);
+        foreach (mail_admin_list() as $addr) {
+            @send_mail($addr, $subject, $body);
+        }
+    }
+}

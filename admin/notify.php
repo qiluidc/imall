@@ -38,7 +38,7 @@ admin_page_start('通知设置');
                 <span class="toggle-slider"></span>
             </label>
         </div>
-        <p class="hint">配置发件邮箱后，可用下方「发送测试」验证通道是否可用。</p>
+        <p class="hint">触发场景：<strong>买家提交新订单</strong>时，向下方管理员接收邮箱发送订单明细邮件。配置完成后可用「发送测试」验证通道是否可用。</p>
         <div class="form-row">
             <div class="form-group">
                 <label>SMTP 服务器</label>
@@ -86,7 +86,7 @@ admin_page_start('通知设置');
             <div class="form-group">
                 <label>管理员接收邮箱（多个用逗号分隔）</label>
                 <input type="text" name="mail_admin_emails" value="<?php echo e($settings['mail_admin_emails']); ?>" placeholder="admin@example.com,ops@example.com">
-                <small>用于接收站点通知邮件</small>
+                <small>用于接收新订单通知邮件</small>
             </div>
             <div class="form-group">
                 <label>发送测试</label>
@@ -107,6 +107,7 @@ admin_page_start('通知设置');
                 <span class="toggle-slider"></span>
             </label>
         </div>
+        <p class="hint">触发场景：① <strong>买家提交新订单</strong> → 按「下单通知模板」发给管理员手机号；② <strong>后台点击发货</strong>（仅首次） → 按「发货通知模板」发给买家。</p>
         <div class="form-group">
             <label>螺丝帽 API Key</label>
             <input type="text" name="sms_api_key" value="<?php echo e($settings['sms_api_key']); ?>" placeholder="key-xxxxxxxxxxxx">

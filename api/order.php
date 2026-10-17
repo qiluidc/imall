@@ -99,25 +99,19 @@ try {
         $now,
     ]);
 
-    // 短信通知管理员（非阻塞，失败不影响下单结果）
-    if (setting('sms_enabled')) {
-        $tplOrder = setting('sms_tpl_order', '新订单待处理：{product} x{quantity}，合计¥{amount}。收货人：{buyer}({phone})，地址：{address}。订单号：{order_no}');
-        $smsContent = render_sms_template($tplOrder, [
-            'product'  => $product['title'],
-            'quantity' => $quantity,
-            'amount'   => format_money($total),
-            'buyer'    => $name,
-            'phone'    => $phone,
-            'address'  => $address,
-            'order_no' => $orderNo,
-        ]);
-        $adminMobiles = preg_split('/[\s,，、]+/u', (string) setting('admin_notify_mobiles'), -1, PREG_SPLIT_NO_EMPTY);
-        foreach ($adminMobiles as $m) {
-            if (is_mobile($m)) {
-                @send_sms($m, $smsContent);
-            }
-        }
-    }
+    // 新订单通知管理员（短信 + 邮件，非阻塞，失败不影响下单结果）
+    notify_admin_new_order([
+        'order_no'      => $orderNo,
+        'product_title' => $product['title'],
+        'spec_label'    => $specLabel,
+        'quantity'      => $quantity,
+        'total_amount'  => $total,
+        'buyer_name'    => $name,
+        'buyer_phone'   => $phone,
+        'buyer_address' => $address,
+        'buyer_remark'  => $remark,
+        'created_at'    => $now,
+    ]);
 
     json_response([
         'code'      => 0,
